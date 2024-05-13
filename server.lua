@@ -1,93 +1,28 @@
-ESX = exports["es_extended"]:getSharedObject()
 
-ESX.RegisterUsableItem('weed_table', function(source)
-  local xPlayer = ESX.GetPlayerFromId(source)
-  TriggerClientEvent('sm:spawntable', source)
+CreateThread(function()
+    for name, _ in pairs(Config) do 
+        ESX.RegisterUsableItem(name, function(source)
+            local xPlayer = ESX.GetPlayerFromId(source)
+            if xPlayer then
+                xPlayer.removeInventoryItem(name, 1)
+                TriggerClientEvent('sm:spawntable', source, name)
+            end
+        end)
+    end
 end)
 
+RegisterServerEvent("sm:makedrugs", function(index)
+    local data <const> = Config[index]
 
-ESX.RegisterUsableItem('meth_table', function(source)
-    local xPlayer = ESX.GetPlayerFromId(source)
-    TriggerClientEvent('sm:spawntable2', source)
-  end)
+    if not data then return false end 
 
-  RegisterNetEvent('sm:makeweed')
-  AddEventHandler('sm:makeweed', function(itemName)
-      local xPlayer = ESX.GetPlayerFromId(source)
-      local recipe = nil
-  
-      for _, recipeData in pairs(Config.TableCrafting) do
-          if recipeData.name == itemName then
-              recipe = recipeData
-              break
-          end
-      end
-  
-      if recipe then
-          local hasAllRequiredItems = true
-  
-          for _, requiredItem in ipairs(recipe.requiredItems) do
-              local inventoryItem = xPlayer.getInventoryItem(requiredItem.name)
-              if not inventoryItem or inventoryItem.count < requiredItem.count then
-                  hasAllRequiredItems = false
-                  break
-              end
-          end
-  
-          if hasAllRequiredItems then
-              if xPlayer.canCarryItem(recipe.producedItem, recipe.producedItemCount) then
-                  TriggerClientEvent('sm:play:anim:client', source)
-                  for _, requiredItem in ipairs(recipe.requiredItems) do
-                      xPlayer.removeInventoryItem(requiredItem.name, requiredItem.count)
-                  end
-                  xPlayer.addInventoryItem(recipe.producedItem, recipe.producedItemCount)
-              else
-                  print("No inventory space for produced item")
-              end
-          else
-              print("Insufficient required items")
-          end
-      else
-          print("Invalid crafting recipe")
-      end
-  end)
+    local player <const> = ESX.GetPlayerFromId(source)
 
+    if not player then return false end 
 
-  RegisterNetEvent('sm:makemeth')
-  AddEventHandler('sm:makemeth', function(tableName)
-      local xPlayer = ESX.GetPlayerFromId(source)
-  
-  
-      local recipe = Config.TableCrafting[tableName]
-  
-      if recipe then
-  
-          local hasAllRequiredItems = true
-  
-          for _, requiredItem in ipairs(recipe.requiredItems) do
-              local inventoryItem = xPlayer.getInventoryItem(requiredItem.name)
-              if not inventoryItem or inventoryItem.count < requiredItem.count then
-                  hasAllRequiredItems = false
-                  break
-              end
-          end
-  
-          if hasAllRequiredItems then
-              if xPlayer.canCarryItem(recipe.producedItem, recipe.producedItemCount) then
-                  TriggerClientEvent('sm:play:anim:client', source)
-                  for _, requiredItem in ipairs(recipe.requiredItems) do
-                      xPlayer.removeInventoryItem(requiredItem.name, requiredItem.count)
-                  end
-                  xPlayer.addInventoryItem(recipe.producedItem, recipe.producedItemCount)
-              else
-                  print("No inventory space for produced item")
-              end
-          else
-              print("Insufficient required items")
-          end
-      else
-          print("Invalid crafting recipe")
-      end
-  end)
-  
-  
+    for _, v in ipairs(data.requiredItems) do player.removeInventoryItem(v.name, v.count) end
+    
+    player.addInventoryItem(data.producedItem, data.producedItemCount)
+    
+    return true
+end)

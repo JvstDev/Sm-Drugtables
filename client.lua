@@ -1,211 +1,95 @@
-RegisterNetEvent('sm:spawntable', function()
-    lib.progressBar({
-        duration = 4000,
-        label = 'Placing table...',
-        useWhileDead = false,
-        canCancel = false,
-        disable = {
-            car = true,
-        },
-        anim = {
-            dict = 'weapon@w_sp_jerrycan',
-            clip = 'discard_crouch'
-        },
-    })
 
-    local modelHash = "prop_ven_market_table1"
-    if not HasModelLoaded(modelHash) then
-        RequestModel(modelHash)
+local target <const> = exports.ox_target
+local inventory <const> = exports.ox_inventory
+local objects = {}
 
-        while not HasModelLoaded(modelHash) do
-            Citizen.Wait(1)
-        end
-    end
-
-    local offsetCoords = GetOffsetFromEntityInWorldCoords(PlayerPedId(), 0.0, 2.0, 0.0)
-
-    local obj = CreateObject(modelHash, offsetCoords, true) 
-    PlaceObjectOnGroundProperly(obj)
-end)
-
-
-
-RegisterNetEvent('sm:spawntable2', function()
-    local Prop2 = {
-        'prop_table_03'
-    }
+local function pickupTable(data)
+    local dict = lib.requestAnimDict("anim@gangops@facility@servers@bodysearch@")
+    TaskPlayAnim(cache.ped, dict, "player_search", 8.0, 1.0, -1, 49, 0, 0, 0, 0)
     
-    exports.ox_target:addModel(Prop2, {
-        {
-            name = 'prop_ven_market_table1',
-            icon = 'fa-solid fa-flask-vial',
-            label = 'Use table',
-            event = 'sm:openmenu2',
-        }
-    })
-    lib.progressBar({
-        duration = 4000,
-        label = 'Placing table...',
-        useWhileDead = false,
-        canCancel = false,
-        disable = {
-            car = true,
-        },
-        anim = {
-            dict = 'weapon@w_sp_jerrycan',
-            clip = 'discard_crouch'
-        },
-    })
+    local success = lib.progressBar({ duration = 2000, label = 'Picking up tabel...' })
+    if not success then return end
+    
+    ClearPedTasks(cache.ped)
 
-    local modelHash = "prop_table_03"
-    if not HasModelLoaded(modelHash) then
-        RequestModel(modelHash)
+    target:removeLocalEntity(data.entity)
+    DeleteObject(data.entity)
+    objects[data.entity] = nil
+end
 
-        while not HasModelLoaded(modelHash) do
-            Citizen.Wait(1)
-        end
-    end
-
-    local offsetCoords = GetOffsetFromEntityInWorldCoords(PlayerPedId(), 0.0, 2.0, 0.0)
-
-    local obj = CreateObject(modelHash, offsetCoords, true) 
-    PlaceObjectOnGroundProperly(obj)
-end)
-
-
-
-local Prop = {
-    'prop_ven_market_table1'
+local progressBar <const> = {
+    duration = 4000,
+    label = 'Placing table...',
+    useWhileDead = false,
+    canCancel = false,
+    disable = { car = true, move = true },
+    anim = { dict = 'weapon@w_sp_jerrycan', clip = 'discard_crouch' }
 }
 
-exports.ox_target:addModel(Prop, {
-    {
-        name = 'prop_ven_market_table1',
-        icon = 'fa-solid fa-cannabis',
-        label = 'Use table',
-        event = 'sm:openmenu',
-    }
-})
+local targetElements <const> = {
+    { label = 'Use table', icon = 'fa-solid fa-flask-vial', onSelect = function(); lib.showContext("drugsmenu") end },
+    { label = 'Pickup', icon = 'fa-solid fa-flask-vial', onSelect = pickupTable }
+}
 
-
-
-
-lib.registerContext({
-    id = 'menu2',
+local drugsContext <const> = {
+    id = 'drugsmenu',
     title = 'Drug lab',
-    options = {
-      {
-        title = 'Drug table',
-        description = 'Make Meth',
-        icon = 'fa-solid fa-flask-vial',
-        onSelect = function()
-          TriggerServerEvent('sm:makemeth', 'meth_table')
-        end,
-      },
-      {
-        title = 'Drug table',
-        description = 'Pickup tabel',
-        icon = 'fa-solid fa-flask-vial',
-        onSelect = function()
-            TriggerEvent('sm:play:anim:client2')
-            Wait(5000)
-            local ped = PlayerPedId()
-            local pedCoords = GetEntityCoords(ped)
-            local radius = 5.0
-            local prop = GetClosestObjectOfType(pedCoords.x, pedCoords.y, pedCoords.z, radius, GetHashKey("prop_table_03"), false, false, false)
-            if prop ~= 0 then
-                DeleteObject(prop)
+    options = { { title = 'Drug table', icon = 'fa-solid fa-flask-vial' } }
+}
+
+local function makeDrugs(index)
+    local data <const> = Config[index]
+    local items = {}
+
+    for _, v in pairs(data.requiredItems) do table.insert(items, inventory:Search('count', v.name) >= v.count and {} or nil) end
+    
+    if #items < #data.requiredItems then return ESX.ShowNotification("Insufficient required items") end
+
+    local weight = inventory:GetPlayerWeight()
+    
+    for _, v in pairs(data.requiredItems) do weight -= (inventory:Items(v.name).weight * v.count) / 1000 end
+
+    weight += inventory:Items(data.producedItem)?.weight * data.producedItemCount
+    
+    if weight >= inventory:GetPlayerMaxWeight() then return ESX.ShowNotification("No inventory space for produced item") end
+    
+    local progress = table.clone(progressBar)
+    progress.label = 'Making Drugs'
+    local success = lib.progressBar(progress)
+    
+    if success then TriggerServerEvent("sm:makedrugs", index) end
+end
+
+AddEventHandler("onResourceStop", function(resource)
+    if cache.resource == resource then 
+        for obj, _ in pairs(objects) do 
+            if DoesEntityExist(obj) then
+                DeleteObject(obj)
             end
-        end,
-      }
-    }
-})
-
-  
-
-
-lib.registerContext({
-    id = 'menu1',
-    title = 'Drug lab',
-    options = {
-      {
-        title = 'Drug table',
-        description = 'Make Weed',
-        icon = 'fa-solid fa-cannabis',
-        onSelect = function()
-          TriggerServerEvent('sm:makeweed')
-        end,
-      },
-      {
-        title = 'Drug table',
-        description = 'Pickup tabel',
-        icon = 'fa-solid fa-cannabis',
-        onSelect = function()
-            TriggerEvent('sm:play:anim:client2')
-            Wait(5000)
-            local ped = PlayerPedId()
-            local pedCoords = GetEntityCoords(ped)
-            local radius = 5.0
-            local prop = GetClosestObjectOfType(pedCoords.x, pedCoords.y, pedCoords.z, radius, GetHashKey("prop_ven_market_table1"), false, false, false)
-            if prop ~= 0 then
-                DeleteObject(prop)
-            end
-        end,
-      }
-    }
-})
-
-RegisterNetEvent('sm:openmenu', function()
-    lib.showContext('menu1')
-end)
-
-RegisterNetEvent('sm:openmenu2', function()
-    lib.showContext('menu2')
-end)
-
-RegisterNetEvent("sm:play:anim:client", function()
-    local ped = GetPlayerPed(-1)
-
-    local animDict = "anim@gangops@facility@servers@bodysearch@"
-    local animName = "player_search"
-
-    RequestAnimDict(animDict)
-
-    while not HasAnimDictLoaded(animDict) do
-        Wait(500)
+            objects[obj] = nil
+        end
     end
-
-    TaskPlayAnim(ped, animDict, animName, 8.0, 1.0, -1, 49, 0, 0, 0, 0)
-    lib.progressBar({
-        duration = 5000,
-        label = 'Making Drugs',
-    })
-
-    Wait(5000)
-
-    ClearPedTasks(ped)
 end)
 
+RegisterNetEvent('sm:spawntable', function(index)
+    local data <const> = Config[index]
+    if not data then return end
 
-RegisterNetEvent("sm:play:anim:client2", function()
-    local ped = GetPlayerPed(-1)
+    local success <const> = lib.progressBar(progressBar)
+    if not success then return end
 
-    local animDict = "anim@gangops@facility@servers@bodysearch@"
-    local animName = "player_search"
+    local model <const> = lib.requestModel(data.tableProp)
+    local offset <const> = GetOffsetFromEntityInWorldCoords(cache.ped, 0.0, 2.0, 0.0)
 
-    RequestAnimDict(animDict)
+    local obj <const> = CreateObject(model, offset, true) 
+    PlaceObjectOnGroundProperly(obj)
+    FreezeEntityPosition(obj, true)
+    objects[obj] = true
+    
+    local context <const> = table.clone(drugsContext)
+    context.options[1].description = data.contextDescription
+    context.options[1].onSelect = function(); makeDrugs(index) end
+    lib.registerContext(context)
 
-    while not HasAnimDictLoaded(animDict) do
-        Wait(500)
-    end
-
-    TaskPlayAnim(ped, animDict, animName, 8.0, 1.0, -1, 49, 0, 0, 0, 0)
-    lib.progressBar({
-        duration = 5000,
-        label = 'Picking up tabel...',
-    })
-
-    Wait(5000)
-
-    ClearPedTasks(ped)
+    target:addLocalEntity(obj, targetElements)
 end)
