@@ -2,10 +2,13 @@ fx_version 'cerulean'
 game 'gta5'
 lua54 'yes'
 
+author 'Forked by Jv$t'
+description 'Drug tables'
+
 shared_scripts {
     '@es_extended/imports.lua',
     '@ox_lib/init.lua',
-	'config.lua'
+    'config.lua'
 }
 
 client_scripts {
